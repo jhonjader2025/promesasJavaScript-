@@ -456,7 +456,7 @@ function loadSinglePost() {
 
 // SEGUNDA PROMESA: CARGA DE USUARIOS
 
-/// PROMESA 2 EL PERNA
+
 function loadUsersList(){
   showLoading('users-list', 'Cargando usuarios...');
 //Primeros 5 Usuarios
@@ -483,7 +483,7 @@ function loadUsersList(){
 
 
 
-///TERCERA PROMESA PROMICE ALL 3
+///TERCERA PROMESA PROMICE ALL 3 perna
 
 
 
@@ -518,7 +518,7 @@ function loadCombinedData() {
       const container = document.getElementById(containerId);
       if (!container) return;
 
-      // Pintar en el HTML los datos con estilos bonitos
+      // Pintar en el HTML los datos obtenidos de las 3 promesas
       container.innerHTML = `
         <div class="space-y-6">
           <div class="flex items-center justify-between border-b border-slate-800 pb-3">
@@ -567,6 +567,67 @@ function loadCombinedData() {
 }
 
 
+// TERCERA PROMESA DE Promise.allSettled perna
+
+
+function loadSettledPosts() {
+  const container = document.getElementById('settled-posts');
+  container.innerHTML = 'Cargando peticiones...';
+
+  // Lista de peticiones la 3ª tiene URL inválida a propósito para forzar error
+  const requests = [
+    { name: 'Petición 1', url: `${API}/posts/1` },
+    { name: 'Petición 2', url: `${API}/posts/2` },
+    { name: 'Petición 3 (Error)', url: `${API}/posts/invalid-999` },
+    { name: 'Petición 4', url: `${API}/posts/4` },
+    { name: 'Petición 5', url: `${API}/posts/5` }
+  ];
+
+  // Creamos un arreglo de promesas a partir de las URLs
+  const promises = requests.map(req =>
+    fetch(req.url)
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then(data => ({ name: req.name, data }))
+  );
+
+  // Ejecutamos todas las promesas con allSettled()
+  Promise.allSettled(promises)
+    .then(results => {
+      // results contiene el estado de cada promesa
+      const html = results.map((result, index) => {
+        const reqInfo = requests[index];
+
+        if (result.status === 'fulfilled') {
+          const post = result.value.data;
+          return `
+            <div style="border:1px solid #28a745; padding:12px; margin:8px 0; border-radius:6px;">
+              <strong>${reqInfo.name}</strong> <br>
+              <strong>${post.title}</strong><br>
+              ${post.body}
+            </div>
+          `;
+        } else {
+          // Caso de error
+          const errorMsg = result.reason ? result.reason.message : 'Error desconocido';
+          return `
+            <div style="border:1px solid #dc3545; padding:12px; margin:8px 0; border-radius:6px; background:#fff5f5;">
+              <strong>${reqInfo.name}</strong> ❌<br>
+              <span style="color:#dc3545;">${errorMsg}</span>
+            </div>
+          `;
+        }
+      }).join('');
+
+      container.innerHTML = html;
+    })
+    .catch(error => {
+      // Este catch solo se ejecuta si hay error en la propia ejecución de allSettled que es casi nunca
+      container.innerHTML = `Error inesperado: ${error.message}`;
+    });
+}
 
 // ================================================================
 // INICIALIZACION
