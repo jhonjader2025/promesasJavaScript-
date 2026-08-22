@@ -698,6 +698,187 @@ function loadRaceResult() {
 }
 
 // ================================================================
+// SEXTA PROMESA: Promise.any
+// ================================================================
+function loadAnyResult() {
+  const containerId = 'any-result';
+  showLoading(containerId, 'Ejecutando Promise.any()...');
+
+  const req1 = fetch(`${API}/posts/invalid-url-1`).then(res => {
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  });
+  const req2 = fetch(`${API}/posts/invalid-url-2`).then(res => {
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  });
+  const req3 = fetch(`${API}/posts/3`).then(res => {
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  });
+
+  Promise.any([req1, req2, req3])
+    .then(data => {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+      container.innerHTML = `
+        <h3 class="text-lg font-bold text-cyan-400 mb-2">✅ ¡Primer éxito alcanzado!</h3>
+        <p class="text-slate-300 text-sm leading-relaxed mb-2"><strong>Título:</strong> ${sanitizeHTML(data.title)}</p>
+        <p class="text-slate-300 text-sm leading-relaxed">${sanitizeHTML(data.body)}</p>
+        <span class="inline-block mt-3 text-xs text-slate-500 bg-slate-800 px-2 py-1 rounded">
+          Promise.any ignoró los fallos de las otras dos peticiones y se quedó con la primera exitosa.
+        </span>
+      `;
+    })
+    .catch(error => {
+      showError(containerId, 'Todas las promesas fallaron: ' + error.errors.join(', '));
+    });
+}
+
+// ================================================================
+// SÉPTIMA PROMESA: Máquina de estados
+// ================================================================
+let isSearchInit = false;
+function initSearchIfNeeded() {
+  if (isSearchInit) return;
+  const btn = document.getElementById('search-btn');
+  const input = document.getElementById('user-id-input');
+  const statusEl = document.getElementById('search-status');
+  const resultsEl = document.getElementById('search-results');
+  const btnText = document.getElementById('btn-text');
+  const btnSpinner = document.getElementById('btn-spinner');
+
+  if (!btn || !input) return;
+
+  function setStatus(state, message = '') {
+    statusEl.classList.remove('hidden', 'bg-yellow-500/10', 'text-yellow-400', 'bg-emerald-500/10', 'text-emerald-400', 'bg-red-500/10', 'text-red-400');
+    
+    if (state === 'PENDING') {
+      statusEl.classList.remove('hidden');
+      statusEl.classList.add('bg-yellow-500/10', 'text-yellow-400');
+      statusEl.textContent = '⏳ PENDING: Buscando información...';
+      btnText.textContent = 'Buscando...';
+      btnSpinner.classList.remove('hidden');
+      btn.disabled = true;
+      resultsEl.innerHTML = '';
+    } else if (state === 'FULFILLED') {
+      statusEl.classList.remove('hidden');
+      statusEl.classList.add('bg-emerald-500/10', 'text-emerald-400');
+      statusEl.textContent = '✅ FULFILLED: ' + message;
+      btnText.textContent = 'Buscar';
+      btnSpinner.classList.add('hidden');
+      btn.disabled = false;
+    } else if (state === 'REJECTED') {
+      statusEl.classList.remove('hidden');
+      statusEl.classList.add('bg-red-500/10', 'text-red-400');
+      statusEl.textContent = '❌ REJECTED: ' + message;
+      btnText.textContent = 'Buscar';
+      btnSpinner.classList.add('hidden');
+      btn.disabled = false;
+    }
+  }
+
+  btn.addEventListener('click', () => {
+    const id = input.value.trim();
+    if (!id || id < 1 || id > 10) {
+      setStatus('REJECTED', 'Debes ingresar un ID válido entre 1 y 10.');
+      return;
+    }
+
+    setStatus('PENDING');
+
+    fetch(`${API}/users/${id}/posts`)
+      .then(res => {
+        if (!res.ok) throw new Error(`Usuario no encontrado (HTTP ${res.status})`);
+        return res.json();
+      })
+      .then(posts => {
+        if (posts.length === 0) {
+           setStatus('FULFILLED', 'Usuario sin posts.');
+           return;
+        }
+        setStatus('FULFILLED', `Se encontraron ${posts.length} posts.`);
+        resultsEl.innerHTML = posts.map(post => `
+          <div class="bg-slate-800/60 p-4 rounded-lg border border-slate-700/60 mt-3">
+            <h4 class="font-bold text-sm text-emerald-400">${sanitizeHTML(post.title)}</h4>
+            <p class="text-xs text-slate-400 mt-2">${sanitizeHTML(post.body)}</p>
+          </div>
+        `).join('');
+      })
+      .catch(err => {
+        setStatus('REJECTED', err.message);
+      });
+  });
+
+  isSearchInit = true;
+}
+
+// ================================================================
+// VIDEOS (Cámara Web con promesas)
+// ================================================================
+function initVideos() {
+  const startBtn = document.getElementById('start-camera');
+  const stopBtn = document.getElementById('stop-camera');
+  const captureBtn = document.getElementById('capture-photo');
+  const videoEl = document.getElementById('video-preview');
+  const canvasEl = document.getElementById('photo-canvas');
+  const photoStatus = document.getElementById('photo-status');
+  const videoInfo = document.getElementById('video-info');
+  
+  let stream = null;
+
+  if (!startBtn) return;
+
+  startBtn.addEventListener('click', () => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      videoInfo.innerHTML = '<p class="text-red-400">Tu navegador no soporta el acceso a la cámara.</p>';
+      return;
+    }
+    
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then(mediaStream => {
+        stream = mediaStream;
+        videoEl.srcObject = stream;
+        startBtn.classList.add('hidden');
+        stopBtn.classList.remove('hidden');
+        captureBtn.classList.remove('hidden');
+        
+        const track = stream.getVideoTracks()[0];
+        const settings = track.getSettings();
+        videoInfo.innerHTML = `
+          <p><strong>Resolución:</strong> <span class="text-emerald-400">${settings.width}x${settings.height}</span></p>
+          <p><strong>Frame Rate:</strong> <span class="text-emerald-400">${settings.frameRate ? settings.frameRate.toFixed(2) : 'N/A'} fps</span></p>
+        `;
+      })
+      .catch(err => {
+        videoInfo.innerHTML = `<p class="text-red-400">Error al acceder a la cámara: ${sanitizeHTML(err.message)}</p>`;
+      });
+  });
+
+  stopBtn.addEventListener('click', () => {
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      videoEl.srcObject = null;
+      startBtn.classList.remove('hidden');
+      stopBtn.classList.add('hidden');
+      captureBtn.classList.add('hidden');
+      videoInfo.innerHTML = '';
+      photoStatus.textContent = 'Cámara detenida.';
+    }
+  });
+
+  captureBtn.addEventListener('click', () => {
+    if (!stream) return;
+    canvasEl.width = videoEl.videoWidth;
+    canvasEl.height = videoEl.videoHeight;
+    const ctx = canvasEl.getContext('2d');
+    ctx.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height);
+    canvasEl.classList.remove('hidden');
+    photoStatus.innerHTML = `<span class="text-emerald-400">Foto capturada: ${new Date().toLocaleTimeString()}</span>`;
+  });
+}
+
+// ================================================================
 // INICIALIZACION
 // ================================================================
 
