@@ -456,7 +456,7 @@ function loadSinglePost() {
 
 // SEGUNDA PROMESA: CARGA DE USUARIOS
 
-/// PROMESA 2 EL PERNA
+
 function loadUsersList(){
   showLoading('users-list', 'Cargando usuarios...');
 //Primeros 5 Usuarios
@@ -483,7 +483,7 @@ function loadUsersList(){
 
 
 
-///TERCERA PROMESA PROMICE ALL 3
+///TERCERA PROMESA PROMICE ALL 3 perna
 
 
 
@@ -518,7 +518,7 @@ function loadCombinedData() {
       const container = document.getElementById(containerId);
       if (!container) return;
 
-      // Pintar en el HTML los datos con estilos bonitos
+      // Pintar en el HTML los datos obtenidos de las 3 promesas
       container.innerHTML = `
         <div class="space-y-6">
           <div class="flex items-center justify-between border-b border-slate-800 pb-3">
@@ -567,6 +567,316 @@ function loadCombinedData() {
 }
 
 
+// CUARTA PROMESA DE Promise.allSettled perna
+
+
+function loadSettledPosts() {
+  const container = document.getElementById('settled-posts');
+  container.innerHTML = 'Cargando peticiones...';
+
+  // Lista de peticiones la 3ª tiene URL inválida a propósito para forzar error
+  const requests = [
+    { name: 'Petición 1', url: `${API}/posts/1` },
+    { name: 'Petición 2', url: `${API}/posts/2` },
+    { name: 'Petición 3 (Error)', url: `${API}/posts/invalid-999` },
+    { name: 'Petición 4', url: `${API}/posts/4` },
+    { name: 'Petición 5', url: `${API}/posts/5` }
+  ];
+
+  // Creamos un arreglo de promesas a partir de las URLs
+  const promises = requests.map(req =>
+    fetch(req.url)
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then(data => ({ name: req.name, data }))
+  );
+
+  // Ejecutamos todas las promesas con allSettled()
+  Promise.allSettled(promises)
+    .then(results => {
+      // results contiene el estado de cada promesa
+      const html = results.map((result, index) => {
+        const reqInfo = requests[index];
+
+        if (result.status === 'fulfilled') {
+          const post = result.value.data;
+          return `
+            <div style="border:1px solid #28a745; padding:12px; margin:8px 0; border-radius:6px;">
+              <strong>${reqInfo.name}</strong> <br>
+              <strong>${post.title}</strong><br>
+              ${post.body}
+            </div>
+          `;
+        } else {
+          // Caso de error
+          const errorMsg = result.reason ? result.reason.message : 'Error desconocido';
+          return `
+            <div style="border:1px solid #dc3545; padding:12px; margin:8px 0; border-radius:6px; background:#fff5f5;">
+              <strong>${reqInfo.name}</strong> ❌<br>
+              <span style="color:#dc3545;">${errorMsg}</span>
+            </div>
+          `;
+        }
+      }).join('');
+
+      container.innerHTML = html;
+    })
+    .catch(error => {
+      // Este catch solo se ejecuta si hay error en la propia ejecución de allSettled que es casi nunca
+      container.innerHTML = `Error inesperado: ${error.message}`;
+    });
+}
+
+
+// QUINTA PROMESA DE Promise.race perna
+
+/**
+ * ================================================================
+ *  Promise.race() - El primero en terminar gana
+ * ================================================================
+ *  Promise.race() ejecuta varias promesas y devuelve el resultado
+ *  de la PRIMERA que se complete (resuelta o rechazada).
+ *
+ *  En este ejemplo hacemos competir:
+ *    - Una petición HTTP a JSONPlaceholder
+ *    - Un temporizador de 3 segundos (timeout)
+ *
+ *  Si la petición llega antes de 3s → muestra los datos.
+ *  Si pasan 3s sin respuesta → muestra mensaje de timeout.
+ * ================================================================
+ */
+
+function loadRaceResult() {
+  // 1. Buscar el contenedor en el HTML
+  const container = document.getElementById('race-result');
+
+  // 2. Mostrar mensaje de "cargando..."
+  container.innerHTML = ' Esperando respuesta... (máximo 3 segundos)';
+
+  // 3. Promesa que hace la petición HTTP
+  const fetchPromise = fetch('https://jsonplaceholder.typicode.com/posts/1')
+    .then(res => {
+      if (!res.ok) throw new Error(`Error HTTP ${res.status}`);
+      return res.json(); // Convertir respuesta a objeto
+    })
+    .then(data => ({
+      status: 'success',
+      mensaje: 'Respuesta recibida correctamente.',
+      data: data
+    }));
+
+  // 4. Promesa de timeout (3 segundos)
+  const timeoutPromise = new Promise((_, reject) => {
+    setTimeout(() => {
+      reject(new Error('Tiempo de espera agotado (3 segundos)'));
+    }, 3000);
+  });
+
+  // 5. Promise.race() - compiten ambas promesas
+  Promise.race([fetchPromise, timeoutPromise])
+    .then(result => {
+      // Caso: ganó la petición HTTP (llegó antes de 3s)
+      container.innerHTML = `
+        <h3>✅ ${result.mensaje}</h3>
+        <p><strong>Título:</strong> ${result.data.title}</p>
+        <p><strong>Cuerpo:</strong> ${result.data.body}</p>
+        <p><small>La petición llegó antes de los 3 segundos.</small></p>
+      `;
+      console.log('Ganó la API:', result.data);
+    })
+    .catch(error => {
+      // Caso: ganó el timeout (pasaron 3s sin respuesta)
+      container.innerHTML = `
+        <h3 style="color: #d9534f;">❌ ${error.message}</h3>
+        <p>No se recibió respuesta a tiempo. La petición fue cancelada simbólicamente.</p>
+        <p><small>El timeout de 3 segundos fue más rápido.</small></p>
+      `;
+      console.warn('Ganó el timeout:', error.message);
+    });
+}
+
+// ================================================================
+// SEXTA PROMESA: Promise.any
+// ================================================================
+function loadAnyResult() {
+  const containerId = 'any-result';
+  showLoading(containerId, 'Ejecutando Promise.any()...');
+
+  const req1 = fetch(`${API}/posts/invalid-url-1`).then(res => {
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  });
+  const req2 = fetch(`${API}/posts/invalid-url-2`).then(res => {
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  });
+  const req3 = fetch(`${API}/posts/3`).then(res => {
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  });
+
+  Promise.any([req1, req2, req3])
+    .then(data => {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+      container.innerHTML = `
+        <h3 class="text-lg font-bold text-cyan-400 mb-2">✅ ¡Primer éxito alcanzado!</h3>
+        <p class="text-slate-300 text-sm leading-relaxed mb-2"><strong>Título:</strong> ${sanitizeHTML(data.title)}</p>
+        <p class="text-slate-300 text-sm leading-relaxed">${sanitizeHTML(data.body)}</p>
+        <span class="inline-block mt-3 text-xs text-slate-500 bg-slate-800 px-2 py-1 rounded">
+          Promise.any ignoró los fallos de las otras dos peticiones y se quedó con la primera exitosa.
+        </span>
+      `;
+    })
+    .catch(error => {
+      showError(containerId, 'Todas las promesas fallaron: ' + error.errors.join(', '));
+    });
+}
+
+// ================================================================
+// SÉPTIMA PROMESA: Máquina de estados
+// ================================================================
+let isSearchInit = false;
+function initSearchIfNeeded() {
+  if (isSearchInit) return;
+  const btn = document.getElementById('search-btn');
+  const input = document.getElementById('user-id-input');
+  const statusEl = document.getElementById('search-status');
+  const resultsEl = document.getElementById('search-results');
+  const btnText = document.getElementById('btn-text');
+  const btnSpinner = document.getElementById('btn-spinner');
+
+  if (!btn || !input) return;
+
+  function setStatus(state, message = '') {
+    statusEl.classList.remove('hidden', 'bg-yellow-500/10', 'text-yellow-400', 'bg-emerald-500/10', 'text-emerald-400', 'bg-red-500/10', 'text-red-400');
+    
+    if (state === 'PENDING') {
+      statusEl.classList.remove('hidden');
+      statusEl.classList.add('bg-yellow-500/10', 'text-yellow-400');
+      statusEl.textContent = '⏳ PENDING: Buscando información...';
+      btnText.textContent = 'Buscando...';
+      btnSpinner.classList.remove('hidden');
+      btn.disabled = true;
+      resultsEl.innerHTML = '';
+    } else if (state === 'FULFILLED') {
+      statusEl.classList.remove('hidden');
+      statusEl.classList.add('bg-emerald-500/10', 'text-emerald-400');
+      statusEl.textContent = '✅ FULFILLED: ' + message;
+      btnText.textContent = 'Buscar';
+      btnSpinner.classList.add('hidden');
+      btn.disabled = false;
+    } else if (state === 'REJECTED') {
+      statusEl.classList.remove('hidden');
+      statusEl.classList.add('bg-red-500/10', 'text-red-400');
+      statusEl.textContent = '❌ REJECTED: ' + message;
+      btnText.textContent = 'Buscar';
+      btnSpinner.classList.add('hidden');
+      btn.disabled = false;
+    }
+  }
+
+  btn.addEventListener('click', () => {
+    const id = input.value.trim();
+    if (!id || id < 1 || id > 10) {
+      setStatus('REJECTED', 'Debes ingresar un ID válido entre 1 y 10.');
+      return;
+    }
+
+    setStatus('PENDING');
+
+    fetch(`${API}/users/${id}/posts`)
+      .then(res => {
+        if (!res.ok) throw new Error(`Usuario no encontrado (HTTP ${res.status})`);
+        return res.json();
+      })
+      .then(posts => {
+        if (posts.length === 0) {
+           setStatus('FULFILLED', 'Usuario sin posts.');
+           return;
+        }
+        setStatus('FULFILLED', `Se encontraron ${posts.length} posts.`);
+        resultsEl.innerHTML = posts.map(post => `
+          <div class="bg-slate-800/60 p-4 rounded-lg border border-slate-700/60 mt-3">
+            <h4 class="font-bold text-sm text-emerald-400">${sanitizeHTML(post.title)}</h4>
+            <p class="text-xs text-slate-400 mt-2">${sanitizeHTML(post.body)}</p>
+          </div>
+        `).join('');
+      })
+      .catch(err => {
+        setStatus('REJECTED', err.message);
+      });
+  });
+
+  isSearchInit = true;
+}
+
+// ================================================================
+// VIDEOS (Cámara Web con promesas)
+// ================================================================
+function initVideos() {
+  const startBtn = document.getElementById('start-camera');
+  const stopBtn = document.getElementById('stop-camera');
+  const captureBtn = document.getElementById('capture-photo');
+  const videoEl = document.getElementById('video-preview');
+  const canvasEl = document.getElementById('photo-canvas');
+  const photoStatus = document.getElementById('photo-status');
+  const videoInfo = document.getElementById('video-info');
+  
+  let stream = null;
+
+  if (!startBtn) return;
+
+  startBtn.addEventListener('click', () => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      videoInfo.innerHTML = '<p class="text-red-400">Tu navegador no soporta el acceso a la cámara.</p>';
+      return;
+    }
+    
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then(mediaStream => {
+        stream = mediaStream;
+        videoEl.srcObject = stream;
+        startBtn.classList.add('hidden');
+        stopBtn.classList.remove('hidden');
+        captureBtn.classList.remove('hidden');
+        
+        const track = stream.getVideoTracks()[0];
+        const settings = track.getSettings();
+        videoInfo.innerHTML = `
+          <p><strong>Resolución:</strong> <span class="text-emerald-400">${settings.width}x${settings.height}</span></p>
+          <p><strong>Frame Rate:</strong> <span class="text-emerald-400">${settings.frameRate ? settings.frameRate.toFixed(2) : 'N/A'} fps</span></p>
+        `;
+      })
+      .catch(err => {
+        videoInfo.innerHTML = `<p class="text-red-400">Error al acceder a la cámara: ${sanitizeHTML(err.message)}</p>`;
+      });
+  });
+
+  stopBtn.addEventListener('click', () => {
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      videoEl.srcObject = null;
+      startBtn.classList.remove('hidden');
+      stopBtn.classList.add('hidden');
+      captureBtn.classList.add('hidden');
+      videoInfo.innerHTML = '';
+      photoStatus.textContent = 'Cámara detenida.';
+    }
+  });
+
+  captureBtn.addEventListener('click', () => {
+    if (!stream) return;
+    canvasEl.width = videoEl.videoWidth;
+    canvasEl.height = videoEl.videoHeight;
+    const ctx = canvasEl.getContext('2d');
+    ctx.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height);
+    canvasEl.classList.remove('hidden');
+    photoStatus.innerHTML = `<span class="text-emerald-400">Foto capturada: ${new Date().toLocaleTimeString()}</span>`;
+  });
+}
 
 // ================================================================
 // INICIALIZACION
