@@ -567,7 +567,7 @@ function loadCombinedData() {
 }
 
 
-// TERCERA PROMESA DE Promise.allSettled perna
+// CUARTA PROMESA DE Promise.allSettled perna
 
 
 function loadSettledPosts() {
@@ -626,6 +626,74 @@ function loadSettledPosts() {
     .catch(error => {
       // Este catch solo se ejecuta si hay error en la propia ejecución de allSettled que es casi nunca
       container.innerHTML = `Error inesperado: ${error.message}`;
+    });
+}
+
+
+// QUINTA PROMESA DE Promise.race perna
+
+/**
+ * ================================================================
+ *  Promise.race() - El primero en terminar gana
+ * ================================================================
+ *  Promise.race() ejecuta varias promesas y devuelve el resultado
+ *  de la PRIMERA que se complete (resuelta o rechazada).
+ *
+ *  En este ejemplo hacemos competir:
+ *    - Una petición HTTP a JSONPlaceholder
+ *    - Un temporizador de 3 segundos (timeout)
+ *
+ *  Si la petición llega antes de 3s → muestra los datos.
+ *  Si pasan 3s sin respuesta → muestra mensaje de timeout.
+ * ================================================================
+ */
+
+function loadRaceResult() {
+  // 1. Buscar el contenedor en el HTML
+  const container = document.getElementById('race-result');
+
+  // 2. Mostrar mensaje de "cargando..."
+  container.innerHTML = ' Esperando respuesta... (máximo 3 segundos)';
+
+  // 3. Promesa que hace la petición HTTP
+  const fetchPromise = fetch('https://jsonplaceholder.typicode.com/posts/1')
+    .then(res => {
+      if (!res.ok) throw new Error(`Error HTTP ${res.status}`);
+      return res.json(); // Convertir respuesta a objeto
+    })
+    .then(data => ({
+      status: 'success',
+      mensaje: 'Respuesta recibida correctamente.',
+      data: data
+    }));
+
+  // 4. Promesa de timeout (3 segundos)
+  const timeoutPromise = new Promise((_, reject) => {
+    setTimeout(() => {
+      reject(new Error('Tiempo de espera agotado (3 segundos)'));
+    }, 3000);
+  });
+
+  // 5. Promise.race() - compiten ambas promesas
+  Promise.race([fetchPromise, timeoutPromise])
+    .then(result => {
+      // Caso: ganó la petición HTTP (llegó antes de 3s)
+      container.innerHTML = `
+        <h3>✅ ${result.mensaje}</h3>
+        <p><strong>Título:</strong> ${result.data.title}</p>
+        <p><strong>Cuerpo:</strong> ${result.data.body}</p>
+        <p><small>La petición llegó antes de los 3 segundos.</small></p>
+      `;
+      console.log('Ganó la API:', result.data);
+    })
+    .catch(error => {
+      // Caso: ganó el timeout (pasaron 3s sin respuesta)
+      container.innerHTML = `
+        <h3 style="color: #d9534f;">❌ ${error.message}</h3>
+        <p>No se recibió respuesta a tiempo. La petición fue cancelada simbólicamente.</p>
+        <p><small>El timeout de 3 segundos fue más rápido.</small></p>
+      `;
+      console.warn('Ganó el timeout:', error.message);
     });
 }
 
