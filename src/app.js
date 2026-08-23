@@ -116,7 +116,7 @@ function loadPageData(page) {
     case 'promise-race': loadRaceResult(); break;
     case 'promise-any': loadAnyResult(); break;
     case 'maquina-estados': initSearchIfNeeded(); break;
-    case 'videos': break;
+    case 'videos': initVideos(); break;
     case 'reportes': break;
     case 'geolocalizacion': break;
     default: break;
@@ -425,7 +425,7 @@ function initSidebar() {
 }
 
 
-/// primera promesa .
+/// PRIMERA PROMESA.
 function loadSinglePost() {
   showLoading('single-post');// Muestra mensaje de carga
   fetch(`${API}/posts/1`)// Realiza la solicitud a la API para obtener el post con ID 1
@@ -483,7 +483,7 @@ function loadUsersList(){
 
 
 
-///TERCERA PROMESA PROMICE ALL 3 perna
+///TERCERA PROMESA PROMICE ALL 3 JHON JADER
 
 
 
@@ -567,7 +567,7 @@ function loadCombinedData() {
 }
 
 
-// CUARTA PROMESA DE Promise.allSettled perna
+// CUARTA PROMESA DE Promise.allSettled JHON JADER
 
 
 function loadSettledPosts() {
@@ -630,7 +630,7 @@ function loadSettledPosts() {
 }
 
 
-// QUINTA PROMESA DE Promise.race perna
+// QUINTA PROMESA DE Promise.race JHON JADER
 
 /**
  * ================================================================
@@ -696,6 +696,354 @@ function loadRaceResult() {
       console.warn('Ganó el timeout:', error.message);
     });
 }
+
+
+
+
+// SEXTA PROMESA: PROMISE.ANY ALEJANDRO
+/**
+ * ================================================================
+ *  Promise.any() - El primer éxito importa
+ * ================================================================
+ *  Promise.any() toma un arreglo de promesas y se resuelve tan pronto
+ *  como CUALQUIERA de las promesas se cumpla (éxito).
+ *  Ignora las promesas que se rechazan a menos que TODAS fallen,
+ *  en cuyo caso lanza un AggregateError.
+ * ================================================================
+ */
+function loadAnyResult() {
+  const containerId = 'any-result';
+  showLoading(containerId, 'Buscando el primer servidor que responda con éxito (Promise.any)...');
+
+  // Definimos 3 peticiones a endpoints diferentes (incluyendo endpoints con error y demoras simuladas)
+  const req1 = fetch(`${API}/posts/invalid-endpoint-999`)
+    .then(res => {
+      if (!res.ok) throw new Error(`Servidor 1 falló con HTTP ${res.status}`);
+      return res.json();
+    })
+    .then(data => ({ server: 'Servidor 1 (Con Error)', data }));
+
+  const req2 = new Promise((resolve, reject) => {
+    setTimeout(() => {
+      fetch(`${API}/posts/1`)
+        .then(res => {
+          if (!res.ok) throw new Error(`Servidor 2 falló con HTTP ${res.status}`);
+          return res.json();
+        })
+        .then(data => resolve({ server: 'Servidor 2 (Principal - 500ms)', data }))
+        .catch(reject);
+    }, 500);
+  });
+
+  const req3 = new Promise((resolve, reject) => {
+    setTimeout(() => {
+      fetch(`${API}/users/1`)
+        .then(res => {
+          if (!res.ok) throw new Error(`Servidor 3 falló con HTTP ${res.status}`);
+          return res.json();
+        })
+        .then(data => resolve({ server: 'Servidor 3 (Respaldos - 1200ms)', data }))
+        .catch(reject);
+    }, 1200);
+  });
+
+  console.time('[Promise.any] Tiempo de respuesta');
+  Promise.any([req1, req2, req3])
+    .then(result => {
+      console.timeEnd('[Promise.any] Tiempo de respuesta');
+      const container = document.getElementById(containerId);
+      if (!container) return;
+
+      const isPost = result.data.title !== undefined;
+
+      container.innerHTML = `
+        <div class="space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <span class="inline-flex items-center gap-2 px-3 py-1 bg-cyan-500/10 text-cyan-400 text-xs font-semibold rounded-full border border-cyan-500/20">
+              <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+              🥇 Primer éxito capturado: ${sanitizeHTML(result.server)}
+            </span>
+            <span class="text-xs text-slate-500 font-mono">Promise.any() OK</span>
+          </div>
+
+          <div class="bg-slate-800/60 p-4 rounded-lg border border-slate-700/60">
+            ${isPost ? `
+              <h3 class="text-lg font-bold text-white mb-2">${sanitizeHTML(result.data.title)}</h3>
+              <p class="text-sm text-slate-300 leading-relaxed">${sanitizeHTML(result.data.body)}</p>
+              <span class="inline-block mt-3 text-xs text-slate-500 bg-slate-900 px-2.5 py-1 rounded border border-slate-800">
+                Post ID: ${result.data.id} | Autor ID: ${result.data.userId}
+              </span>
+            ` : `
+              <h3 class="text-lg font-bold text-emerald-400 mb-2">${sanitizeHTML(result.data.name)} (@${sanitizeHTML(result.data.username)})</h3>
+              <p class="text-sm text-slate-300">📧 ${sanitizeHTML(result.data.email)}</p>
+              <p class="text-xs text-slate-400 mt-1">🏢 ${sanitizeHTML(result.data.company?.name || '')}</p>
+            `}
+          </div>
+
+          <p class="text-xs text-slate-400 bg-slate-950/40 p-3 rounded border border-slate-800">
+            ℹ️ <strong>Nota:</strong> A diferencia de <code class="text-cyan-300">Promise.race()</code> (que se interrumpe si la primera petición falla), <code class="text-cyan-300">Promise.any()</code> ignoró el error del Servidor 1 y esperó al primer servidor que respondió exitosamente.
+          </p>
+        </div>
+      `;
+    })
+    .catch(error => {
+      console.error('[Promise.any] Todas las promesas fueron rechazadas:', error);
+      let errorDetails = error.message;
+      if (error.errors) {
+        errorDetails = error.errors.map(e => e.message).join(' | ');
+      }
+      showError(containerId, `Promise.any() rechazó la operación (todas las peticiones fallaron): ${errorDetails}`);
+    });
+}
+
+
+// SEPTIMA PROMESA: MAQUINA DE ESTADOS ALEJANDRO
+/**
+ * ================================================================
+ *  Máquina de Estados — UI Reactiva
+ * ================================================================
+ *  Gestión de estados: IDLE -> PENDING -> FULFILLED / REJECTED
+ * ================================================================
+ */
+
+let isSearchInitialized = false;
+
+function initSearchIfNeeded() {
+  const searchBtn = document.getElementById('search-btn');
+  const userIdInput = document.getElementById('user-id-input');
+
+  if (!searchBtn || !userIdInput) return;
+
+  if (!isSearchInitialized) {
+    isSearchInitialized = true;
+
+    searchBtn.addEventListener('click', performStateSearch);
+    userIdInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        performStateSearch();
+      }
+    });
+  }
+}
+
+function updateSearchState(state, payload = {}) {
+  const searchBtn = document.getElementById('search-btn');
+  const btnText = document.getElementById('btn-text');
+  const btnSpinner = document.getElementById('btn-spinner');
+  const searchStatus = document.getElementById('search-status');
+  const searchResults = document.getElementById('search-results');
+
+  if (!searchBtn || !btnText || !btnSpinner || !searchStatus || !searchResults) return;
+
+  switch (state) {
+    case 'PENDING':
+      searchBtn.disabled = true;
+      searchBtn.classList.add('opacity-75', 'cursor-not-allowed');
+      btnText.textContent = 'Buscando...';
+      btnSpinner.classList.remove('hidden');
+
+      searchStatus.className = 'mb-3 p-3 rounded-lg text-sm font-medium bg-yellow-500/10 text-yellow-400 border border-yellow-500/20';
+      searchStatus.innerHTML = `⏳ <strong>PENDING:</strong> Consultando publicaciones para el usuario ID ${payload.userId || ''}...`;
+      searchStatus.classList.remove('hidden');
+
+      searchResults.innerHTML = '';
+      break;
+
+    case 'FULFILLED':
+      searchBtn.disabled = false;
+      searchBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+      btnText.textContent = 'Buscar';
+      btnSpinner.classList.add('hidden');
+
+      searchStatus.className = 'mb-3 p-3 rounded-lg text-sm font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+      searchStatus.innerHTML = `✅ <strong>FULFILLED:</strong> Se encontraron ${payload.posts.length} publicaciones del usuario <strong>${sanitizeHTML(payload.user.name)}</strong> (@${sanitizeHTML(payload.user.username)})`;
+      searchStatus.classList.remove('hidden');
+
+      searchResults.innerHTML = payload.posts.map(post => `
+        <div class="bg-slate-800/80 rounded-lg p-4 border border-slate-700 hover:border-slate-600 transition-all">
+          <h4 class="font-bold text-white text-base mb-1">${sanitizeHTML(post.title)}</h4>
+          <p class="text-slate-300 text-sm leading-relaxed">${sanitizeHTML(post.body)}</p>
+          <span class="inline-block mt-2 text-xs text-slate-500">Post #${post.id}</span>
+        </div>
+      `).join('');
+      break;
+
+    case 'REJECTED':
+      searchBtn.disabled = false;
+      searchBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+      btnText.textContent = 'Buscar';
+      btnSpinner.classList.add('hidden');
+
+      searchStatus.className = 'mb-3 p-3 rounded-lg text-sm font-medium bg-red-500/10 text-red-400 border border-red-500/20';
+      searchStatus.innerHTML = `❌ <strong>REJECTED:</strong> ${sanitizeHTML(payload.error)}`;
+      searchStatus.classList.remove('hidden');
+
+      searchResults.innerHTML = '';
+      break;
+
+    case 'IDLE':
+    default:
+      searchBtn.disabled = false;
+      searchBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+      btnText.textContent = 'Buscar';
+      btnSpinner.classList.add('hidden');
+      searchStatus.classList.add('hidden');
+      searchResults.innerHTML = '';
+      break;
+  }
+}
+
+async function performStateSearch() {
+  const userIdInput = document.getElementById('user-id-input');
+  if (!userIdInput) return;
+
+  const rawValue = userIdInput.value.trim();
+  const userId = parseInt(rawValue, 10);
+
+  if (!rawValue || isNaN(userId) || userId < 1 || userId > 10) {
+    updateSearchState('REJECTED', { error: 'Por favor ingresa un ID de usuario válido entre 1 y 10.' });
+    return;
+  }
+
+  // Transición a estado PENDING
+  updateSearchState('PENDING', { userId });
+
+  try {
+    // Latencia simulada para apreciar la transición de la máquina de estados
+    await new Promise(resolve => setTimeout(resolve, 600));
+
+    const [userRes, postsRes] = await Promise.all([
+      fetch(`${API}/users/${userId}`),
+      fetch(`${API}/posts?userId=${userId}`)
+    ]);
+
+    if (!userRes.ok || !postsRes.ok) {
+      throw new Error(`No se pudo obtener la información (HTTP ${userRes.status}/${postsRes.status})`);
+    }
+
+    const user = await userRes.json();
+    const posts = await postsRes.json();
+
+    if (!posts || posts.length === 0) {
+      throw new Error(`El usuario ID ${userId} no tiene publicaciones asociadas.`);
+    }
+
+    // Transición a estado FULFILLED
+    updateSearchState('FULFILLED', { user, posts });
+  } catch (error) {
+    // Transición a estado REJECTED
+    updateSearchState('REJECTED', { error: error.message });
+  }
+}
+
+
+// ================================================================
+// VIDEOS - MEDIASTREAM ALEJANRO
+// ================================================================
+
+let activeVideoStream = null;
+let isVideosInitialized = false;
+
+function initVideos() {
+  const startBtn = document.getElementById('start-camera');
+  const stopBtn = document.getElementById('stop-camera');
+  const captureBtn = document.getElementById('capture-photo');
+  const videoPreview = document.getElementById('video-preview');
+  const photoCanvas = document.getElementById('photo-canvas');
+  const photoStatus = document.getElementById('photo-status');
+  const videoInfo = document.getElementById('video-info');
+
+  if (!startBtn || isVideosInitialized) return;
+  isVideosInitialized = true;
+
+  // Iniciar cámara
+  startBtn.addEventListener('click', async () => {
+    photoStatus.className = 'text-yellow-400 text-sm';
+    photoStatus.textContent = 'Solicitando acceso a la cámara...';
+
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Tu navegador o entorno no soporta la API getUserMedia().');
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false
+      });
+
+      activeVideoStream = stream;
+      videoPreview.srcObject = stream;
+      await videoPreview.play();
+
+      startBtn.classList.add('hidden');
+      stopBtn.classList.remove('hidden');
+      captureBtn.classList.remove('hidden');
+
+      photoStatus.className = 'text-emerald-400 text-sm';
+      photoStatus.textContent = '📷 Cámara activa y transmitiendo.';
+
+      const track = stream.getVideoTracks()[0];
+      if (track) {
+        const settings = track.getSettings();
+        videoInfo.innerHTML = `
+          <p><strong>Dispositivo:</strong> ${sanitizeHTML(track.label || 'Cámara web')}</p>
+          <p><strong>Resolución:</strong> ${settings.width || 640}x${settings.height || 480} px</p>
+          <p><strong>Frecuencia:</strong> ${settings.frameRate ? settings.frameRate.toFixed(0) + ' fps' : 'N/A'}</p>
+        `;
+      }
+    } catch (error) {
+      console.error('[Videos] Error al iniciar cámara:', error);
+      photoStatus.className = 'text-red-400 text-sm';
+      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        photoStatus.textContent = '❌ Permiso denegado para acceder a la cámara. Por favor habilita el permiso en tu navegador.';
+      } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+        photoStatus.textContent = '❌ No se encontró ninguna cámara conectada en tu dispositivo.';
+      } else {
+        photoStatus.textContent = `❌ Error al acceder a la cámara: ${error.message}`;
+      }
+    }
+  });
+
+  // Detener cámara
+  stopBtn.addEventListener('click', () => {
+    if (activeVideoStream) {
+      activeVideoStream.getTracks().forEach(track => track.stop());
+      activeVideoStream = null;
+    }
+    videoPreview.srcObject = null;
+
+    startBtn.classList.remove('hidden');
+    stopBtn.classList.add('hidden');
+    captureBtn.classList.add('hidden');
+
+    photoStatus.className = 'text-slate-500 text-sm';
+    photoStatus.textContent = 'Cámara detenida.';
+    videoInfo.innerHTML = '';
+  });
+
+  // Capturar foto
+  captureBtn.addEventListener('click', () => {
+    if (!videoPreview || !videoPreview.videoWidth) {
+      photoStatus.className = 'text-red-400 text-sm';
+      photoStatus.textContent = '❌ El video no está listo para capturar fotos.';
+      return;
+    }
+
+    const width = videoPreview.videoWidth;
+    const height = videoPreview.videoHeight;
+
+    photoCanvas.width = width;
+    photoCanvas.height = height;
+
+    const ctx = photoCanvas.getContext('2d');
+    ctx.drawImage(videoPreview, 0, 0, width, height);
+
+    photoCanvas.classList.remove('hidden');
+    photoStatus.className = 'text-emerald-400 text-sm font-semibold';
+    photoStatus.textContent = `📸 Foto capturada con éxito a las ${new Date().toLocaleTimeString()} (${width}x${height} px)`;
+  });
+}
+
 
 // ================================================================
 // SEXTA PROMESA: Promise.any
